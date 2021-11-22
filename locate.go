@@ -4,7 +4,7 @@
 * @Last Modified by:   scottxiong
 * @Last Modified time: 2021-11-22 10:59:31
  */
-package main
+package lct
 
 import (
 	"io/ioutil"
