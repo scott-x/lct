@@ -67,25 +67,25 @@ import (
 )
 
 func main() {
-		l := &lct.Location2 {
-			Folders: []string{
-				// "/Volumes/datavolumn_bmkserver_Pub/新做稿/未开始",
-				// "/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
-				// "/Volumes/datavolumn_bmkserver_Pub/新做稿/已结束",
-				// "/Volumes/datavolumn_bmkserver_Design/Proofing",
-				// "/Volumes/datavolumn_bmkserver_Design/Other",
-				// "/Volumes/datavolumn_bmkserver_Design/WMT-Canada",
-				// "/Volumes/datavolumn_bmkserver_Design/WMT-USA",
-				"/Volumes/datavolumn_bmkserver_Design/WMT-USA/2022/USA_HOL_2022",
-				"/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
-			},
-			ExpectT: 2,
-			Re: "^U211042.*",
-			Do: func(item string) {
-				fmt.Println(item)
-			},
-		}
+	l := &lct.Location2 {
+		Folders: []string{
+			// "/Volumes/datavolumn_bmkserver_Pub/新做稿/未开始",
+			// "/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
+			// "/Volumes/datavolumn_bmkserver_Pub/新做稿/已结束",
+			// "/Volumes/datavolumn_bmkserver_Design/Proofing",
+			// "/Volumes/datavolumn_bmkserver_Design/Other",
+			// "/Volumes/datavolumn_bmkserver_Design/WMT-Canada",
+			// "/Volumes/datavolumn_bmkserver_Design/WMT-USA",
+			"/Volumes/datavolumn_bmkserver_Design/WMT-USA/2022/USA_HOL_2022",
+			"/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
+		},
+		ExpectT: 2,
+		Re: "^U211042.*",
+		Do: func(item string) {
+			fmt.Println(item)
+		},
+	}
 
-		l.Locate()
+	l.Locate()
 }
 ```
