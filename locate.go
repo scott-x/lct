@@ -28,17 +28,19 @@ var (
 
 //just look for one item
 type Location struct {
-	Folders []string //folders: 可能存在的路径
-	ExpectT int      //0 file 1 folder 2 mix(file + folder)
-	Re      string   //底层会被封装成regexp
+	Folders    []string //folders: 可能存在的路径
+	ExpectT    int      //0 file 1 folder 2 mix(file + folder)
+	Re         string   //底层会被封装成regexp
+	IgnoreFunc func(string) bool
 }
 
 //find all
 type Location2 struct {
-	Folders []string     //folders: 可能存在的路径
-	ExpectT int          //0 file 1 folder
-	Re      string       //将来会被封装成regexp
-	Do      func(string) //how to deal with the matched item
+	Folders    []string //folders: 可能存在的路径
+	ExpectT    int      //0 file 1 folder
+	Re         string   //将来会被封装成regexp
+	IgnoreFunc func(string) bool
+	Do         func(string) //how to deal with the matched item
 }
 
 func (l2 *Location2) Locate() {
@@ -47,7 +49,7 @@ func (l2 *Location2) Locate() {
 	mutex.Unlock()
 
 	for _, folder := range l2.Folders {
-		go walk(folder, true, l2.ExpectT, l2.Re)
+		go walk(folder, true, l2.ExpectT, l2.Re, l2.IgnoreFunc)
 	}
 
 	wait2(l2)
@@ -58,7 +60,7 @@ func (l *Location) Locate() (string, time.Duration) {
 	t1 := time.Now()
 
 	for _, folder := range l.Folders {
-		go walk(folder, true, l.ExpectT, l.Re)
+		go walk(folder, true, l.ExpectT, l.Re, l.IgnoreFunc)
 	}
 
 	wait(l)
@@ -73,7 +75,7 @@ func wait(l *Location) {
 			workers++
 			mutex.Unlock()
 			// log.Println(workers)
-			go walk(task, true, l.ExpectT, l.Re)
+			go walk(task, true, l.ExpectT, l.Re, l.IgnoreFunc)
 		case <-ch_done:
 			mutex.Lock()
 			workers--
@@ -97,7 +99,7 @@ func wait2(l *Location2) {
 			workers++
 			mutex.Unlock()
 			// log.Println(workers)
-			go walk(task, true, l.ExpectT, l.Re)
+			go walk(task, true, l.ExpectT, l.Re, l.IgnoreFunc)
 		case <-ch_done:
 			mutex.Lock()
 			workers--
@@ -129,9 +131,9 @@ func wait2(l *Location2) {
 						mutex.Lock()
 						workers++
 						mutex.Unlock()
-						go walk(result, true, l.ExpectT, l.Re)
+						go walk(result, true, l.ExpectT, l.Re, l.IgnoreFunc)
 					} else {
-						walk(result, false, l.ExpectT, l.Re)
+						walk(result, false, l.ExpectT, l.Re, l.IgnoreFunc)
 					}
 				}
 			}
@@ -139,7 +141,7 @@ func wait2(l *Location2) {
 	}
 }
 
-func walk(dir string, goroutine bool, T int, re string) {
+func walk(dir string, goroutine bool, T int, re string, fn func(fd string) bool) {
 	__re := regexp.MustCompile(re)
 
 	fls, _ := ioutil.ReadDir(dir)
@@ -148,6 +150,13 @@ func walk(dir string, goroutine bool, T int, re string) {
 		name := v.Name()
 		if v.IsDir() {
 			new_dir := path.Join(dir, name)
+
+			//ignore
+			if fn != nil {
+				if fn(fd) {
+					continue
+				}
+			}
 
 			//T==0,1,2 都可能会走这里
 			//T==0 直接分配任务
@@ -158,7 +167,7 @@ func walk(dir string, goroutine bool, T int, re string) {
 				if flag {
 					ch_task <- new_dir
 				} else {
-					walk(new_dir, false, T, re)
+					walk(new_dir, false, T, re, fn)
 				}
 			} else {
 				//T==1,2
@@ -174,7 +183,7 @@ func walk(dir string, goroutine bool, T int, re string) {
 					if flag {
 						ch_task <- new_dir
 					} else {
-						walk(new_dir, false, T, re)
+						walk(new_dir, false, T, re, fn)
 					}
 				}
 			}

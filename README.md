@@ -10,6 +10,7 @@ type Location struct {
 	Folders  []string //folders: 可能存在的路径
 	ExpectT int    //0 file 1 folder
 	Re      string //将来会被封装成regexp
+	IgnoreFunc func(string) bool
 }
 
 //find all
@@ -17,6 +18,7 @@ type Location2 struct {
 	Folders []string //folders: 可能存在的路径
 	ExpectT int      //0 file 1 folder 2: mix(file & folder)
 	Re      string   //将来会被封装成regexp
+	IgnoreFunc func(string) bool
 	Do func(string) //当找到匹配项时回自动执行
 }
 ```
