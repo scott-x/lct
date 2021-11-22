@@ -85,7 +85,7 @@ func main() {
 				fmt.Println(item)
 			},
 		}
-		workers = len(l.Folders) //初始化worker
+
 		l.Locate()
 }
 ```

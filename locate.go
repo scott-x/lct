@@ -43,9 +43,9 @@ type Location2 struct {
 
 func (l2 *Location2) Locate() {
 	mutex.Lock()
-	workers = len(l2.Folders)
+	workers = len(l2.Folders) //初始化worker
 	mutex.Unlock()
-	
+
 	for _, folder := range l2.Folders {
 		go walk(folder, true, l2.ExpectT, l2.Re)
 	}
