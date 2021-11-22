@@ -35,12 +35,17 @@ type Location2 struct {
 package main
 
 import (
-	"github.com/scott-x/lct"
 	"fmt"
+	"github.com/scott-x/lct"
+	"strings"
 )
 
+var ignores = []string{
+	"test",
+}
+
 func main() {
-	l := &lct.Location {
+	l := &lct.Location{
 		Folders: []string{
 			// "/Volumes/datavolumn_bmkserver_Pub/新做稿/未开始",
 			// "/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
@@ -53,11 +58,25 @@ func main() {
 			"/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
 		},
 		ExpectT: 1,
-		Re: "^U211042.*",
+		Re:      "^U211042.*",
+		IgnoreFunc: func(dir string) bool {
+			var flag bool
+			//fmt.Println(dir) //print all dir
+			for _, ignore := range ignores {
+				lastSlash := strings.LastIndex(dir, "/")
+				name := dir[lastSlash+1:]
+				if ignore == name {
+					flag = true
+					fmt.Println("ignore:", dir)
+					break
+				}
+			}
+			return flag
+		},
 	}
 
-	res, t:= l.Locate()
-	fmt.Println(res,t)
+	res, t := l.Locate()
+	fmt.Println(res, t)
 }
 ```
 
@@ -65,12 +84,17 @@ func main() {
 package main
 
 import (
-	"github.com/scott-x/lct"
 	"fmt"
+	"github.com/scott-x/lct"
+	"strings"
 )
 
+var ignores = []string{
+	"test",
+}
+
 func main() {
-	l := &lct.Location2 {
+	l := &lct.Location2{
 		Folders: []string{
 			// "/Volumes/datavolumn_bmkserver_Pub/新做稿/未开始",
 			// "/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
@@ -83,7 +107,21 @@ func main() {
 			"/Volumes/datavolumn_bmkserver_Pub/新做稿/进行中",
 		},
 		ExpectT: 2,
-		Re: "^U211042.*",
+		Re:      "^U211042.*",
+		IgnoreFunc: func(dir string) bool {
+			var flag bool
+			//fmt.Println(dir) //print all dir
+			for _, ignore := range ignores {
+				lastSlash := strings.LastIndex(dir, "/")
+				name := dir[lastSlash+1:]
+				if ignore == name {
+					flag = true
+					fmt.Println("ignore:", dir)
+					break
+				}
+			}
+			return flag
+		},
 		Do: func(item string) {
 			fmt.Println(item)
 		},
