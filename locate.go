@@ -153,7 +153,7 @@ func walk(dir string, goroutine bool, T int, re string, fn func(fd string) bool)
 
 			//ignore
 			if fn != nil {
-				if fn(fd) {
+				if fn(name) {
 					continue
 				}
 			}
