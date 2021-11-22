@@ -28,19 +28,19 @@ var (
 
 //just look for one item
 type Location struct {
-	Folders    []string //folders: 可能存在的路径
-	ExpectT    int      //0 file 1 folder 2 mix(file + folder)
-	Re         string   //底层会被封装成regexp
-	IgnoreFunc func(string) bool
+	Folders    []string          //folders: 可能存在的路径
+	ExpectT    int               //0 file 1 folder 2 mix(file + folder)
+	Re         string            //底层会被封装成regexp
+	IgnoreFunc func(string) bool //参数是所有的dir
 }
 
 //find all
 type Location2 struct {
-	Folders    []string //folders: 可能存在的路径
-	ExpectT    int      //0 file 1 folder
-	Re         string   //将来会被封装成regexp
-	IgnoreFunc func(string) bool
-	Do         func(string) //how to deal with the matched item
+	Folders    []string          //folders: 可能存在的路径
+	ExpectT    int               //0 file 1 folder
+	Re         string            //将来会被封装成regexp
+	IgnoreFunc func(string) bool //参数是所有的dir
+	Do         func(string)      //how to deal with the matched item
 }
 
 func (l2 *Location2) Locate() {
@@ -141,7 +141,7 @@ func wait2(l *Location2) {
 	}
 }
 
-func walk(dir string, goroutine bool, T int, re string, fn func(fd string) bool) {
+func walk(dir string, goroutine bool, T int, re string, fn func(item string) bool) {
 	__re := regexp.MustCompile(re)
 
 	fls, _ := ioutil.ReadDir(dir)
@@ -153,7 +153,7 @@ func walk(dir string, goroutine bool, T int, re string, fn func(fd string) bool)
 
 			//ignore
 			if fn != nil {
-				if fn(name) {
+				if fn(new_dir) {
 					continue
 				}
 			}
