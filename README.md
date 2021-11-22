@@ -25,6 +25,7 @@ type Location2 struct {
 
 - `func (l *Location) Locate() (string, time.Duration)`:只返回第一个找到的，一旦有结果，程序立即退出，返回结果和时间
 - `func (l2 *Location2) Locate()`:find all，一旦匹配自动执行`l2.Do()`
+- `func GetLatestFileTime(path string) int64`: //获取文件修改时间 返回unix时间戳
 
 ### Example
 
