@@ -33,6 +33,7 @@ package main
 
 import (
 	"github.com/scott-x/lct"
+	"fmt"
 )
 
 func main() {
@@ -62,6 +63,7 @@ package main
 
 import (
 	"github.com/scott-x/lct"
+	"fmt"
 )
 
 func main() {
