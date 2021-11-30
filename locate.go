@@ -2,7 +2,7 @@
 * @Author: scottxiong
 * @Date:   2021-11-22 09:45:12
 * @Last Modified by:   scottxiong
-* @Last Modified time: 2021-11-30 20:02:33
+* @Last Modified time: 2021-11-30 20:37:39
  */
 package lct
 
@@ -55,7 +55,7 @@ func (l2 *Location2) Locate() {
 	mutex.Unlock()
 
 	l2.maxWorkers = 1 << 5
-	l2.ch_task = make(chan string)
+	l2.ch_task = make(chan string, 64)
 	l2.ch_done = make(chan bool)
 	l2.ch_matched = make(chan string)
 	l2.ch_result = make(chan string)
@@ -74,7 +74,7 @@ func (l *Location) Locate() (string, time.Duration) {
 	l.workers = len(l.Folders) //初始化worker
 	mutex.Unlock()
 	l.maxWorkers = 1 << 5
-	l.ch_task = make(chan string)
+	l.ch_task = make(chan string, 64)
 	l.ch_done = make(chan bool)
 	l.ch_matched = make(chan string)
 	l.ch_result = make(chan string)
