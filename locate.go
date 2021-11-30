@@ -2,7 +2,7 @@
 * @Author: scottxiong
 * @Date:   2021-11-22 09:45:12
 * @Last Modified by:   scottxiong
-* @Last Modified time: 2021-11-30 21:38:14
+* @Last Modified time: 2021-11-30 21:54:29
  */
 package lct
 
@@ -23,7 +23,7 @@ type Location struct {
 	IgnoreFunc func(string) bool //参数是所有的dir
 	result     string            //最终匹配结果: 有可能为空（match放全局如果有多个实例会污染变量）
 	workers    int               //current workers
-	maxWorkers int               //max workers
+	MaxWorkers int               //max workers
 	ch_task    chan string
 	ch_done    chan bool
 	ch_matched chan string
@@ -39,7 +39,7 @@ type Location2 struct {
 	IgnoreFunc func(string) bool //参数是所有的dir
 	Do         func(string)      //how to deal with the matched item
 	workers    int               //current workers
-	maxWorkers int               //max workers
+	MaxWorkers int               //max workers
 	ch_task    chan string
 	ch_done    chan bool
 	ch_matched chan string
@@ -50,7 +50,11 @@ type Location2 struct {
 func (l2 *Location2) Locate() {
 	l2.mutex = new(sync.RWMutex)
 	l2.workers = len(l2.Folders) //初始化worker
-	l2.maxWorkers = 1 << 5
+
+	if l2.MaxWorkers == 0 {
+		l2.MaxWorkers = 1 << 5
+	}
+
 	l2.ch_task = make(chan string, 64)
 	l2.ch_done = make(chan bool)
 	l2.ch_matched = make(chan string)
@@ -68,7 +72,11 @@ func (l *Location) Locate() (string, time.Duration) {
 	//init
 	l.mutex = new(sync.RWMutex)
 	l.workers = len(l.Folders) //初始化worker
-	l.maxWorkers = 1 << 5
+
+	if l.MaxWorkers == 0 {
+		l.MaxWorkers = 1 << 5
+	}
+
 	l.ch_task = make(chan string, 64)
 	l.ch_done = make(chan bool)
 	l.ch_matched = make(chan string)
@@ -142,7 +150,7 @@ func wait2(l2 *Location2) {
 				fi, _ := os.Stat(result)
 				if fi.IsDir() {
 					l2.mutex.Lock()
-					flag := l2.workers < l2.maxWorkers
+					flag := l2.workers < l2.MaxWorkers
 					l2.mutex.Unlock()
 					if flag {
 						l2.mutex.Lock()
@@ -179,7 +187,7 @@ func walk1(dir string, goroutine bool, l *Location) {
 			//T==0 直接分配任务
 			if l.ExpectT == 0 {
 				l.mutex.Lock()
-				flag := l.workers < l.maxWorkers
+				flag := l.workers < l.MaxWorkers
 				l.mutex.Unlock()
 				if flag {
 					l.ch_task <- new_dir
@@ -195,7 +203,7 @@ func walk1(dir string, goroutine bool, l *Location) {
 					l.ch_matched <- new_dir
 				} else {
 					l.mutex.Lock()
-					flag := l.workers < l.maxWorkers
+					flag := l.workers < l.MaxWorkers
 					l.mutex.Unlock()
 					if flag {
 						l.ch_task <- new_dir
@@ -249,7 +257,7 @@ func walk2(dir string, goroutine bool, l *Location2) {
 			//T==0 直接分配任务
 			if l.ExpectT == 0 {
 				l.mutex.Lock()
-				flag := l.workers < l.maxWorkers
+				flag := l.workers < l.MaxWorkers
 				l.mutex.Unlock()
 				if flag {
 					l.ch_task <- new_dir
@@ -265,7 +273,7 @@ func walk2(dir string, goroutine bool, l *Location2) {
 					l.ch_matched <- new_dir
 				} else {
 					l.mutex.Lock()
-					flag := l.workers < l.maxWorkers
+					flag := l.workers < l.MaxWorkers
 					l.mutex.Unlock()
 					if flag {
 						l.ch_task <- new_dir

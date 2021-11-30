@@ -11,6 +11,7 @@ type Location struct {
 	ExpectT int    //0 file 1 folder
 	Re      string //将来会被封装成regexp
 	IgnoreFunc func(string) bool
+	MaxWorkers int
 }
 
 //find all
@@ -20,6 +21,7 @@ type Location2 struct {
 	Re      string   //将来会被封装成regexp
 	IgnoreFunc func(string) bool
 	Do func(string) //当找到匹配项时回自动执行
+	MaxWorkers int
 }
 ```
 
