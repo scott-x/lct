@@ -2,7 +2,7 @@
 * @Author: scottxiong
 * @Date:   2021-11-22 09:45:12
 * @Last Modified by:   scottxiong
-* @Last Modified time: 2021-11-30 21:13:02
+* @Last Modified time: 2021-11-30 21:20:42
  */
 package lct
 
@@ -92,7 +92,7 @@ func wait(l *Location) {
 			l.workers++
 			l.mutex.Unlock()
 			// log.Println(workers)
-			go walk1(task, true, *l)
+			go walk1(task, true, l)
 		case <-l.ch_done:
 			l.mutex.Lock()
 			l.workers--
@@ -116,7 +116,7 @@ func wait2(l2 *Location2) {
 			l2.workers++
 			l2.mutex.Unlock()
 			// log.Println(workers)
-			go walk2(task, true, *l2)
+			go walk2(task, true, l2)
 		case <-l2.ch_done:
 			l2.mutex.Lock()
 			l2.workers--
@@ -148,9 +148,9 @@ func wait2(l2 *Location2) {
 						l2.mutex.Lock()
 						l2.workers++
 						l2.mutex.Unlock()
-						go walk2(result, true, *l2)
+						go walk2(result, true, l2)
 					} else {
-						walk2(result, false, *l2)
+						walk2(result, false, l2)
 					}
 				}
 			}
@@ -158,7 +158,7 @@ func wait2(l2 *Location2) {
 	}
 }
 
-func walk1(dir string, goroutine bool, l Location) {
+func walk1(dir string, goroutine bool, l *Location) {
 	__re := regexp.MustCompile(l.Re)
 
 	fls, _ := ioutil.ReadDir(dir)
@@ -228,7 +228,7 @@ func walk1(dir string, goroutine bool, l Location) {
 	}
 }
 
-func walk2(dir string, goroutine bool, l Location2) {
+func walk2(dir string, goroutine bool, l *Location2) {
 	__re := regexp.MustCompile(l.Re)
 
 	fls, _ := ioutil.ReadDir(dir)
