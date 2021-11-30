@@ -2,7 +2,7 @@
 * @Author: scottxiong
 * @Date:   2021-11-22 09:45:12
 * @Last Modified by:   scottxiong
-* @Last Modified time: 2021-11-30 21:20:42
+* @Last Modified time: 2021-11-30 21:38:14
  */
 package lct
 
@@ -57,7 +57,7 @@ func (l2 *Location2) Locate() {
 	l2.ch_result = make(chan string)
 
 	for _, folder := range l2.Folders {
-		go walk2(folder, true, *l2)
+		go walk2(folder, true, l2)
 	}
 
 	wait2(l2)
@@ -77,7 +77,7 @@ func (l *Location) Locate() (string, time.Duration) {
 	t1 := time.Now()
 
 	for _, folder := range l.Folders {
-		go walk1(folder, true, *l)
+		go walk1(folder, true, l)
 	}
 
 	wait(l)
