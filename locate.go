@@ -2,7 +2,7 @@
 * @Author: scottxiong
 * @Date:   2021-11-22 09:45:12
 * @Last Modified by:   scottxiong
-* @Last Modified time: 2021-11-22 10:59:31
+* @Last Modified time: 2021-11-30 19:50:39
  */
 package lct
 
@@ -16,14 +16,7 @@ import (
 )
 
 var (
-	workers    int = 0
-	maxWorkers int = 1 << 5
-	ch_task        = make(chan string, 0)
-	ch_done        = make(chan bool, 0)
-	ch_matched     = make(chan string, 0)
-	ch_result      = make(chan string, 0)
-	match      string
-	mutex      = &sync.RWMutex{}
+	mutex = &sync.RWMutex{}
 )
 
 //just look for one item
@@ -32,6 +25,13 @@ type Location struct {
 	ExpectT    int               //0 file 1 folder 2 mix(file + folder)
 	Re         string            //底层会被封装成regexp
 	IgnoreFunc func(string) bool //参数是所有的dir
+	result     string            //最终匹配结果: 有可能为空（match放全局如果有多个实例会污染变量）
+	workers    int               //current workers
+	maxWorkers int               //max workers
+	ch_task    chan string
+	ch_done    chan bool
+	ch_matched chan string
+	ch_result  chan string
 }
 
 //find all
@@ -41,15 +41,27 @@ type Location2 struct {
 	Re         string            //将来会被封装成regexp
 	IgnoreFunc func(string) bool //参数是所有的dir
 	Do         func(string)      //how to deal with the matched item
+	workers    int               //current workers
+	maxWorkers int               //max workers
+	ch_task    chan string
+	ch_done    chan bool
+	ch_matched chan string
+	ch_result  chan string
 }
 
 func (l2 *Location2) Locate() {
 	mutex.Lock()
-	workers = len(l2.Folders) //初始化worker
+	l2.workers = len(l2.Folders) //初始化worker
 	mutex.Unlock()
 
+	l2.maxWorkers = 1 << 5
+	l2.ch_task = make(chan string)
+	l2.ch_done = make(chan bool)
+	l2.ch_matched = make(chan string)
+	l2.ch_result = make(chan string)
+
 	for _, folder := range l2.Folders {
-		go walk(folder, true, l2.ExpectT, l2.Re, l2.IgnoreFunc)
+		go walk(folder, true, l2)
 	}
 
 	wait2(l2)
@@ -57,83 +69,93 @@ func (l2 *Location2) Locate() {
 
 //look for one item
 func (l *Location) Locate() (string, time.Duration) {
+	//init
+	mutex.Lock()
+	l.workers = len(l.Folders) //初始化worker
+	mutex.Unlock()
+	l.maxWorkers = 1 << 5
+	l.ch_task = make(chan string)
+	l.ch_done = make(chan bool)
+	l.ch_matched = make(chan string)
+	l.ch_result = make(chan string)
+
 	t1 := time.Now()
 
 	for _, folder := range l.Folders {
-		go walk(folder, true, l.ExpectT, l.Re, l.IgnoreFunc)
+		go walk(folder, l)
 	}
 
 	wait(l)
-	return match, time.Since(t1)
+	return l.result, time.Since(t1)
 }
 
 func wait(l *Location) {
 	for {
 		select {
-		case task := <-ch_task:
+		case task := <-l.ch_task:
 			mutex.Lock()
-			workers++
+			l.workers++
 			mutex.Unlock()
 			// log.Println(workers)
-			go walk(task, true, l.ExpectT, l.Re, l.IgnoreFunc)
-		case <-ch_done:
+			go walk1(task, true, *l)
+		case <-l.ch_done:
 			mutex.Lock()
-			workers--
+			l.workers--
 			mutex.Unlock()
 			// log.Println(workers)
-			if workers == 0 {
+			if l.workers == 0 {
 				return
 			}
-		case result := <-ch_matched:
-			match = result
+		case result := <-l.ch_matched:
+			l.result = result
 			return
 		}
 	}
 }
 
-func wait2(l *Location2) {
+func wait2(l2 *Location2) {
 	for {
 		select {
-		case task := <-ch_task:
+		case task := <-l2.ch_task:
 			mutex.Lock()
-			workers++
+			l2.workers++
 			mutex.Unlock()
 			// log.Println(workers)
-			go walk(task, true, l.ExpectT, l.Re, l.IgnoreFunc)
-		case <-ch_done:
+			go walk2(task, true, *l2)
+		case <-l2.ch_done:
 			mutex.Lock()
-			workers--
-			flag := workers == 0
+			l2.workers--
+			flag := l2.workers == 0
 			mutex.Unlock()
 			// log.Println(workers)
 			if flag {
 				return
 			}
 
-		case item := <-ch_result:
-			l.Do(item)
-		case result := <-ch_matched:
-			if l.Do == nil {
+		case item := <-l2.ch_result:
+			l2.Do(item)
+		case result := <-l2.ch_matched:
+			if l2.Do == nil {
 				panic("Location.Do(string) must be implement!")
 			}
 
 			go func() {
-				ch_result <- result
+				l2.ch_result <- result
 			}()
 
-			if l.ExpectT == 2 {
+			if l2.ExpectT == 2 {
 				fi, _ := os.Stat(result)
 				if fi.IsDir() {
 					mutex.Lock()
-					flag := workers < maxWorkers
+					flag := l2.workers < l2.maxWorkers
 					mutex.Unlock()
 					if flag {
 						mutex.Lock()
-						workers++
+						l2.workers++
 						mutex.Unlock()
-						go walk(result, true, l.ExpectT, l.Re, l.IgnoreFunc)
+						go walk2(result, true, *l2)
 					} else {
-						walk(result, false, l.ExpectT, l.Re, l.IgnoreFunc)
+						walk2(result, false, *l2)
 					}
 				}
 			}
@@ -141,8 +163,8 @@ func wait2(l *Location2) {
 	}
 }
 
-func walk(dir string, goroutine bool, T int, re string, fn func(item string) bool) {
-	__re := regexp.MustCompile(re)
+func walk1(dir string, goroutine bool, l Location) {
+	__re := regexp.MustCompile(l.Re)
 
 	fls, _ := ioutil.ReadDir(dir)
 
@@ -152,22 +174,22 @@ func walk(dir string, goroutine bool, T int, re string, fn func(item string) boo
 			new_dir := path.Join(dir, name)
 
 			//ignore
-			if fn != nil {
-				if fn(new_dir) {
+			if l.IgnoreFunc != nil {
+				if l.IgnoreFunc(new_dir) {
 					continue
 				}
 			}
 
 			//T==0,1,2 都可能会走这里
 			//T==0 直接分配任务
-			if T == 0 {
+			if l.ExpectT == 0 {
 				mutex.Lock()
-				flag := workers < maxWorkers
+				flag := l.workers < l.maxWorkers
 				mutex.Unlock()
 				if flag {
-					ch_task <- new_dir
+					l.ch_task <- new_dir
 				} else {
-					walk(new_dir, false, T, re, fn)
+					walk(new_dir, false, l)
 				}
 			} else {
 				//T==1,2
@@ -175,21 +197,21 @@ func walk(dir string, goroutine bool, T int, re string, fn func(item string) boo
 
 				if len(result) > 0 {
 					//found
-					ch_matched <- new_dir
+					l.ch_matched <- new_dir
 				} else {
 					mutex.Lock()
-					flag := workers < maxWorkers
+					flag := l.workers < l.maxWorkers
 					mutex.Unlock()
 					if flag {
-						ch_task <- new_dir
+						l.ch_task <- new_dir
 					} else {
-						walk(new_dir, false, T, re, fn)
+						walk(new_dir, false, l)
 					}
 				}
 			}
 		} else {
 
-			if T == 1 {
+			if l.ExpectT == 1 {
 				continue
 			}
 
@@ -199,7 +221,7 @@ func walk(dir string, goroutine bool, T int, re string, fn func(item string) boo
 			//T==0或2都要放行
 			if len(result) > 0 {
 				//found
-				ch_matched <- path.Join(dir, name)
+				l.ch_matched <- path.Join(dir, name)
 			} else {
 				continue
 			}
@@ -207,6 +229,76 @@ func walk(dir string, goroutine bool, T int, re string, fn func(item string) boo
 	}
 
 	if goroutine {
-		ch_done <- true
+		l.ch_done <- true
+	}
+}
+
+func walk2(dir string, goroutine bool, l Location2) {
+	__re := regexp.MustCompile(l.Re)
+
+	fls, _ := ioutil.ReadDir(dir)
+
+	for _, v := range fls {
+		name := v.Name()
+		if v.IsDir() {
+			new_dir := path.Join(dir, name)
+
+			//ignore
+			if l.IgnoreFunc != nil {
+				if l.IgnoreFunc(new_dir) {
+					continue
+				}
+			}
+
+			//T==0,1,2 都可能会走这里
+			//T==0 直接分配任务
+			if l.ExpectT == 0 {
+				mutex.Lock()
+				flag := l.workers < l.maxWorkers
+				mutex.Unlock()
+				if flag {
+					l.ch_task <- new_dir
+				} else {
+					walk(new_dir, false, l)
+				}
+			} else {
+				//T==1,2
+				result := __re.FindString(name)
+
+				if len(result) > 0 {
+					//found
+					l.ch_matched <- new_dir
+				} else {
+					mutex.Lock()
+					flag := l.workers < l.maxWorkers
+					mutex.Unlock()
+					if flag {
+						l.ch_task <- new_dir
+					} else {
+						walk(new_dir, false, l)
+					}
+				}
+			}
+		} else {
+
+			if l.ExpectT == 1 {
+				continue
+			}
+
+			//file
+			result := __re.FindString(name)
+
+			//T==0或2都要放行
+			if len(result) > 0 {
+				//found
+				l.ch_matched <- path.Join(dir, name)
+			} else {
+				continue
+			}
+		}
+	}
+
+	if goroutine {
+		l.ch_done <- true
 	}
 }
