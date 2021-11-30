@@ -2,7 +2,7 @@
 * @Author: scottxiong
 * @Date:   2021-11-22 09:45:12
 * @Last Modified by:   scottxiong
-* @Last Modified time: 2021-11-30 20:37:39
+* @Last Modified time: 2021-11-30 21:13:02
  */
 package lct
 
@@ -13,10 +13,6 @@ import (
 	"regexp"
 	"sync"
 	"time"
-)
-
-var (
-	mutex = &sync.RWMutex{}
 )
 
 //just look for one item
@@ -32,6 +28,7 @@ type Location struct {
 	ch_done    chan bool
 	ch_matched chan string
 	ch_result  chan string
+	mutex      *sync.RWMutex
 }
 
 //find all
@@ -47,13 +44,12 @@ type Location2 struct {
 	ch_done    chan bool
 	ch_matched chan string
 	ch_result  chan string
+	mutex      *sync.RWMutex
 }
 
 func (l2 *Location2) Locate() {
-	mutex.Lock()
+	l2.mutex = new(sync.RWMutex)
 	l2.workers = len(l2.Folders) //初始化worker
-	mutex.Unlock()
-
 	l2.maxWorkers = 1 << 5
 	l2.ch_task = make(chan string, 64)
 	l2.ch_done = make(chan bool)
@@ -70,9 +66,8 @@ func (l2 *Location2) Locate() {
 //look for one item
 func (l *Location) Locate() (string, time.Duration) {
 	//init
-	mutex.Lock()
+	l.mutex = new(sync.RWMutex)
 	l.workers = len(l.Folders) //初始化worker
-	mutex.Unlock()
 	l.maxWorkers = 1 << 5
 	l.ch_task = make(chan string, 64)
 	l.ch_done = make(chan bool)
@@ -93,15 +88,15 @@ func wait(l *Location) {
 	for {
 		select {
 		case task := <-l.ch_task:
-			mutex.Lock()
+			l.mutex.Lock()
 			l.workers++
-			mutex.Unlock()
+			l.mutex.Unlock()
 			// log.Println(workers)
 			go walk1(task, true, *l)
 		case <-l.ch_done:
-			mutex.Lock()
+			l.mutex.Lock()
 			l.workers--
-			mutex.Unlock()
+			l.mutex.Unlock()
 			// log.Println(workers)
 			if l.workers == 0 {
 				return
@@ -117,16 +112,16 @@ func wait2(l2 *Location2) {
 	for {
 		select {
 		case task := <-l2.ch_task:
-			mutex.Lock()
+			l2.mutex.Lock()
 			l2.workers++
-			mutex.Unlock()
+			l2.mutex.Unlock()
 			// log.Println(workers)
 			go walk2(task, true, *l2)
 		case <-l2.ch_done:
-			mutex.Lock()
+			l2.mutex.Lock()
 			l2.workers--
 			flag := l2.workers == 0
-			mutex.Unlock()
+			l2.mutex.Unlock()
 			// log.Println(workers)
 			if flag {
 				return
@@ -146,13 +141,13 @@ func wait2(l2 *Location2) {
 			if l2.ExpectT == 2 {
 				fi, _ := os.Stat(result)
 				if fi.IsDir() {
-					mutex.Lock()
+					l2.mutex.Lock()
 					flag := l2.workers < l2.maxWorkers
-					mutex.Unlock()
+					l2.mutex.Unlock()
 					if flag {
-						mutex.Lock()
+						l2.mutex.Lock()
 						l2.workers++
-						mutex.Unlock()
+						l2.mutex.Unlock()
 						go walk2(result, true, *l2)
 					} else {
 						walk2(result, false, *l2)
@@ -183,9 +178,9 @@ func walk1(dir string, goroutine bool, l Location) {
 			//T==0,1,2 都可能会走这里
 			//T==0 直接分配任务
 			if l.ExpectT == 0 {
-				mutex.Lock()
+				l.mutex.Lock()
 				flag := l.workers < l.maxWorkers
-				mutex.Unlock()
+				l.mutex.Unlock()
 				if flag {
 					l.ch_task <- new_dir
 				} else {
@@ -199,9 +194,9 @@ func walk1(dir string, goroutine bool, l Location) {
 					//found
 					l.ch_matched <- new_dir
 				} else {
-					mutex.Lock()
+					l.mutex.Lock()
 					flag := l.workers < l.maxWorkers
-					mutex.Unlock()
+					l.mutex.Unlock()
 					if flag {
 						l.ch_task <- new_dir
 					} else {
@@ -253,9 +248,9 @@ func walk2(dir string, goroutine bool, l Location2) {
 			//T==0,1,2 都可能会走这里
 			//T==0 直接分配任务
 			if l.ExpectT == 0 {
-				mutex.Lock()
+				l.mutex.Lock()
 				flag := l.workers < l.maxWorkers
-				mutex.Unlock()
+				l.mutex.Unlock()
 				if flag {
 					l.ch_task <- new_dir
 				} else {
@@ -269,9 +264,9 @@ func walk2(dir string, goroutine bool, l Location2) {
 					//found
 					l.ch_matched <- new_dir
 				} else {
-					mutex.Lock()
+					l.mutex.Lock()
 					flag := l.workers < l.maxWorkers
-					mutex.Unlock()
+					l.mutex.Unlock()
 					if flag {
 						l.ch_task <- new_dir
 					} else {
